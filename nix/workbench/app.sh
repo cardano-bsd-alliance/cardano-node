@@ -33,14 +33,20 @@ app() {
                         container_name: \"\(.value.name)\"
                       , pull_policy: \"never\"
                       , image: \"$imageName:$imageTag\"
-                      , networks: [\"cardano-node-network\"]
+                      , networks: {
+                          \"cardano-node-network\": {
+                            ipv4_address: \"172.16.22.1\(.value.i)\"
+                          }
+                        }
                       , ports: [\"\(.value.port):\(.value.port)\"]
                       , volumes: [
                             \"SHARED:/var/cardano-node\"
                           , \"LOCAL-\(.value.name):/var/cardano-node/local\"
                         ]
                       , environment: [
-                            \"DATA_DIR=/var/cardano-node/local\"
+                            \"HOST_ADDR=172.16.22.1\(.value.i)\"
+                          , \"PORT=\(.value.port)\"
+                          , \"DATA_DIR=/var/cardano-node/local\"
                           , \"NODE_CONFIG=/var/cardano-node/local/config.json\"
                           , \"NODE_TOPOLOGY=/var/cardano-node/local/topology.json\"
                         ]
@@ -48,7 +54,24 @@ app() {
                 }
               )
           )
-        , \"networks\": {\"cardano-node-network\": {}}
+        , \"networks\": {
+          \"cardano-node-network\": {
+              external: false
+            , attachable: true
+            , driver: \"bridge\"
+            , driver_opts: {}
+            , enable_ipv6: false
+            , ipam: {
+                driver: \"default\"
+              , config: [{
+                  subnet: \"172.16.22.0/24\"
+                , ip_range: \"172.16.22.0/24\"
+                , gateway: \"172.16.22.1\"
+                , aux_addresses: {}
+              }]
+            }
+          }
+        }
         , volumes:
           (
               .
