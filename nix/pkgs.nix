@@ -84,6 +84,11 @@ final: prev: with final; {
   supervisord-workbench-nix =
     { workbench ? pkgs.workbench, ... }@args: pkgs.callPackage ./workbench/supervisor.nix args;
 
+  docker-workbench-cabal =
+    { workbench ? pkgs.workbench, ... }@args: pkgs.callPackage ./workbench/docker.nix (args // { useCabalRun = true; });
+  docker-workbench-nix =
+    { workbench ? pkgs.workbench, ... }@args: pkgs.callPackage ./workbench/docker.nix args;
+
   all-profiles-json = (pkgs.callPackage ./workbench/supervisor.nix {}).all-profiles.JSON;
 
   # An instance of the workbench, specialised to the supervisord backend and a profile,
@@ -101,6 +106,20 @@ final: prev: with final; {
     pkgs.callPackage ./workbench/supervisor-run.nix
       {
         inherit batchName profileName supervisord-workbench cardano-node-rev;
+      };
+
+  docker-workbench-for-profile =
+    { batchName             ? customConfig.localCluster.batchName
+    , profileName           ? customConfig.localCluster.profileName
+    , useCabalRun           ? false
+    , workbenchDevMode      ? false
+    , profiled              ? false
+    , docker-workbench ? pkgs.callPackage ./workbench/docker.nix { inherit useCabalRun; }
+    , cardano-node-rev      ? null
+    }:
+    pkgs.callPackage ./workbench/docker-run.nix
+      {
+        inherit batchName profileName docker-workbench cardano-node-rev;
       };
 
   # Disable failing python uvloop tests

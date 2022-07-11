@@ -35,7 +35,7 @@ app() {
                       , image: \"$imageName:$imageTag\"
                       , networks: {
                           \"cardano-node-network\": {
-                            ipv4_address: \"172.16.22.1\(.value.i)\"
+                            ipv4_address: \"172.22.\(.value.i / 254 | floor).\(.value.i % 254 + 1)\"
                           }
                         }
                       , ports: [\"\(.value.port):\(.value.port)\"]
@@ -44,11 +44,16 @@ app() {
                           , \"LOCAL-\(.value.name):/var/cardano-node/local\"
                         ]
                       , environment: [
-                            \"HOST_ADDR=172.16.22.1\(.value.i)\"
+                            \"HOST_ADDR=172.22.\(.value.i / 254 | floor).\(.value.i % 254 + 1)\"
                           , \"PORT=\(.value.port)\"
                           , \"DATA_DIR=/var/cardano-node/local\"
                           , \"NODE_CONFIG=/var/cardano-node/local/config.json\"
                           , \"NODE_TOPOLOGY=/var/cardano-node/local/topology.json\"
+                          , \"SOCKET_PATH=/var/cardano-node/local/node.socket\"
+                          , \"RTS_FLAGS=+RTS -N2 -I0 -A16m -qg -qb --disable-delayed-os-memory-return -RTS\"
+                          , \"SHELLEY_KES_KEY=/var/cardano-node/local/../genesis/node-keys/node-kes\(.value.i).skey\"
+                          , \"SHELLEY_VRF_KEY=/var/cardano-node/local/../genesis/node-keys/node-vrf\(.value.i).skey\"
+                          , \"SHELLEY_OPCERT=/var/cardano-node/local/../genesis/node-keys/node\(.value.i).opcert\"
                         ]
                     }
                 }
@@ -64,9 +69,9 @@ app() {
             , ipam: {
                 driver: \"default\"
               , config: [{
-                  subnet: \"172.16.22.0/24\"
-                , ip_range: \"172.16.22.0/24\"
-                , gateway: \"172.16.22.1\"
+                  subnet: \"172.22.0.0/16\"
+                , ip_range: \"172.22.0.0/16\"
+                , gateway: \"172.22.255.254\"
                 , aux_addresses: {}
               }]
             }
@@ -83,7 +88,7 @@ app() {
                       , driver_opts: {
                             type: \"none\"
                           , o: \"bind\"
-                          , device: \"./run/current/\(.value.name)\"
+                          , device: \"./run/\${WB_RUNDIR_TAG:-current}/\(.value.name)\"
                         }
                     }
                 }
@@ -95,7 +100,7 @@ app() {
                   , driver_opts: {
                         type: \"none\"
                       , o: \"bind\"
-                      , device: \"./run/current\"
+                      , device: \"./run/\${WB_RUNDIR_TAG:-current}\"
                     }
                 }
               }

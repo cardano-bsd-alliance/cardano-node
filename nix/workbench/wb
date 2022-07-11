@@ -21,6 +21,7 @@ global_basedir=${global_basedir:-$(realpath "$(dirname "$0")")}
 . "$global_basedir"/app.sh
 
 . "$global_basedir"/backend.sh
+. "$global_basedir"/docker.sh
 . "$global_basedir"/supervisor.sh
 
 usage_main() {
@@ -91,7 +92,7 @@ start()
 {
     local batch_name=
     local profile_name= profile=
-    local backend=supervisor
+    local backend=${WB_BACKEND:-supervisor}
     local node_source=.
     local node_rev=
     local cabal_mode=
