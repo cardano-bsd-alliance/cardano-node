@@ -88,17 +88,20 @@ readSigningKey name filePath =
     Left err -> liftTxGenError err
     Right key -> setName name key
 
-defineSigningKey :: KeyName -> TextEnvelope -> ActionM ()
-defineSigningKey name descr
-  = case deserialiseFromTextEnvelopeAnyOf types descr of
-    Right key -> setName name key
-    Left err -> throwE $ ApiError $ show err
+parseSigningKey :: TextEnvelope -> Either TextEnvelopeError (SigningKey PaymentKey)
+parseSigningKey descr = deserialiseFromTextEnvelopeAnyOf types descr
   where
     types :: [FromSomeType HasTextEnvelope (SigningKey PaymentKey)]
     types =
       [ FromSomeType (AsSigningKey AsGenesisUTxOKey) castSigningKey
       , FromSomeType (AsSigningKey AsPaymentKey) id
       ]
+
+defineSigningKey :: KeyName -> TextEnvelope -> ActionM ()
+defineSigningKey name descr
+  = case parseSigningKey descr of
+    Right key -> setName name key
+    Left err -> throwE $ ApiError $ show err
 
 addFund :: AnyCardanoEra -> WalletName -> TxIn -> Lovelace -> KeyName -> ActionM ()
 addFund era wallet txIn lovelace keyName = do
@@ -514,7 +517,7 @@ createChangeInEra sourceWallet dstWallet submitMode variant keyName value count 
   protocolParameters <- getProtocolParameters
   fundKey <- getName keyName
   let
-    createCoins :: FundSet.FundSource -> [Lovelace] -> ActionM (Either String (TxInMode CardanoMode))
+    createCoins :: FundSet.FundSource IO -> [Lovelace] -> ActionM (Either String (TxInMode CardanoMode))
     createCoins fundSource coins = do
       let
 --        selector :: FundSet.FundSource
@@ -535,7 +538,7 @@ createChangeInEra sourceWallet dstWallet submitMode variant keyName value count 
 createChangeGeneric ::
      WalletName
   -> SubmitMode
-  -> (FundSet.FundSource -> [Lovelace] -> ActionM (Either String (TxInMode CardanoMode)))
+  -> (FundSet.FundSource IO -> [Lovelace] -> ActionM (Either String (TxInMode CardanoMode)))
   -> String
   -> Lovelace
   -> Int
