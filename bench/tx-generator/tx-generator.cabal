@@ -57,6 +57,7 @@ library
                        Cardano.Benchmarking.Wallet
                        Cardano.Benchmarking.ListBufferedSelector
                        Cardano.Benchmarking.PlutusExample
+                       Cardano.TxGenerator.PureExample
 
   other-modules:       Paths_tx_generator
 
