@@ -73,17 +73,23 @@ let
 
       finaliseNodeConfig =
         { port, ... }: cfg: recursiveUpdate cfg
-          ({
-            AlonzoGenesisFile    = "../genesis/genesis.alonzo.json";
-            ShelleyGenesisFile   = "../genesis/genesis-shelley.json";
-            ByronGenesisFile     = "../genesis/byron/genesis.json";
-          } // optionalAttrs enableEKG {
-            hasEKG               = port + dockerd.portShiftEkg;
-            hasPrometheus        = [ "127.0.0.1" (port + dockerd.portShiftPrometheus) ];
-            setupBackends = [
-              "EKGViewBK"
-            ];
-          });
+          (
+            {
+              AlonzoGenesisFile    = "../genesis/genesis.alonzo.json";
+              ShelleyGenesisFile   = "../genesis/genesis-shelley.json";
+              ByronGenesisFile     = "../genesis/byron/genesis.json";
+            }
+            // optionalAttrs enableEKG
+            {
+              hasEKG               = port + supervisord.portShiftEkg;
+              hasPrometheus        = [
+                "127.0.0.1" (port + supervisord.portShiftPrometheus)
+              ];
+              setupBackends = [
+                "EKGViewBK"
+              ];
+            }
+          );
 
       finaliseNodeArgs =
         profile: nodeSpec: args: args;
