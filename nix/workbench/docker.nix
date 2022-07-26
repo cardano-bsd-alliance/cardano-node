@@ -80,15 +80,15 @@ let
               ByronGenesisFile     = "../genesis/byron/genesis.json";
             }
             // optionalAttrs enableEKG
-            {
-              hasEKG               = port + supervisord.portShiftEkg;
-              hasPrometheus        = [
-                "127.0.0.1" (port + supervisord.portShiftPrometheus)
-              ];
+            (let portShiftEkg        = 100;
+                 portShiftPrometheus = 200;
+            in {
+              hasEKG               = port + portShiftEkg;
+              hasPrometheus        = ["127.0.0.1" (port + portShiftPrometheus)];
               setupBackends = [
                 "EKGViewBK"
               ];
-            }
+            })
           );
 
       finaliseNodeArgs =
@@ -144,9 +144,6 @@ let
         {
           inherit
             extraSupervisorConfig;
-
-          portShiftEkg        = 100;
-          portShiftPrometheus = 200;
 
           ## mkSupervisorConf :: Profile -> SupervisorConf
           mkSupervisorConf =
