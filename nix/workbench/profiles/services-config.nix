@@ -1,10 +1,8 @@
-let
-  basePort              = 30000;
-  stateDir              = "run/current";
-in
 { lib
 , workbench
 ##
+, basePort              ? 30000
+, stateDir              ? "run/current"
 , useCabalRun           ? false
 , enableEKG             ? true
 ##
