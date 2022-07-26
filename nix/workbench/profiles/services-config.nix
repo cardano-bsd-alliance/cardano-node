@@ -1,14 +1,10 @@
 let
   basePort              = 30000;
-  cacheDirDefault       = "${__getEnv "HOME"}/.cache/cardano-workbench";
   stateDir              = "run/current";
 in
-{ pkgs
-, lib
+{ lib
 , workbench
 ##
-, cacheDir              ? cacheDirDefault
-, extraSupervisorConfig ? {}
 , useCabalRun           ? false
 , enableEKG             ? true
 ##
