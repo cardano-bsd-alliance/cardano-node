@@ -7,6 +7,7 @@ module Cardano.Tracer.Handlers.RTView.UI.JS.Charts
   ( prepareChartsJS
   , addDatasetChartJS
   , addAllPointsChartJS
+  , clearPointsChartJS
   , getDatasetsLengthChartJS
   , newTimeChartJS
   , resetZoomChartJS
@@ -69,7 +70,7 @@ var chart = new Chart(ctx, {
       zoom: {
         zoom: {
           drag: {
-            enabled: false
+            enabled: true
           },
           mode: 'x'
         }
@@ -94,7 +95,7 @@ var chart = new Chart(ctx, {
             second: 'HH:mm:ss',
             minute: 'HH:mm',
             hour:   'hh a',
-            day:    'MMM D YYYY'
+            day:    'D'
           },
           unit: 'minute'
         },
@@ -145,6 +146,20 @@ getDatasetsLengthChartJS :: ChartId -> UI Word16
 getDatasetsLengthChartJS chartId = do
   (l :: Int) <- UI.callFunction $ UI.ffi "window.charts.get(%1).data.datasets.length;" (show chartId)
   return $ fromIntegral l
+
+clearPointsChartJS
+  :: ChartId
+  -> [Index]
+  -> UI ()
+clearPointsChartJS chartId ixs =
+  UI.runFunction $ UI.ffi clearAllDatasets
+ where
+  clearAllDatasets =
+       "var chart = window.charts.get('" <> show chartId <> "');"
+    <> concatMap clearDataset ixs
+    <> "chart.update();"
+
+  clearDataset (Index ix) = "chart.data.datasets[" <> show ix <> "].data = [];"
 
 addAllPointsChartJS
   :: ChartId
@@ -204,7 +219,7 @@ setTimeRange chartId rangeInSec = do
       !maxInMs   = utc2s now * 1000
       !minInMs   = maxInMs - fromIntegral rangeInMs
   -- Set time units depends on selected range.
-  let timeUnit = if | rangeInSec == 0                        -> "hour"
+  let timeUnit = if | rangeInSec == 0                        -> "day"
                     | rangeInSec > 0   && rangeInSec <= 300  -> "second"
                     | rangeInSec > 300 && rangeInSec <= 1800 -> "minute"
                     | otherwise                              -> "hour"
