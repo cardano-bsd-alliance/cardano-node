@@ -20,7 +20,7 @@ let
     rec
     { name = "supervisor";
 
-      inherit (import ./profiles/services-config.nix {inherit lib; inherit workbench; inherit basePort; inherit stateDir; inherit useCabalRun; inherit enableEKG;}) topologyForNodeSpec nodePublicIP finaliseNodeService finaliseNodeConfig finaliseNodeArgs finaliseGeneratorService finaliseGeneratorConfig finaliseTracerService;
+      inherit (import ./profiles/services-config.nix {inherit lib workbench basePort stateDir useCabalRun enableEKG;}) topologyForNodeSpec nodePublicIP finaliseNodeService finaliseNodeConfig finaliseNodeArgs finaliseGeneratorService finaliseGeneratorConfig finaliseTracerService;
 
       materialise-profile =
         { profileNix }:
