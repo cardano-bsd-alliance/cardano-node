@@ -133,7 +133,7 @@ let
       }.${profile.value.era};
     };
     in
-    backend.finaliseNodeService profile.value nodeSpec
+    backend.services-config.finaliseNodeService profile.value nodeSpec
     {
       inherit port;
 
@@ -145,7 +145,7 @@ let
       nodeConfig =
         nodeConfigBits.tracing-transform.${profile.value.node.tracing_backend}
           (recursiveUpdate
-            (backend.finaliseNodeConfig nodeSpec
+            (backend.services-config.finaliseNodeConfig nodeSpec
               (recursiveUpdate
                 (recursiveUpdate
                   nodeConfigBits.base
@@ -169,7 +169,7 @@ let
               else [];
             shutBlockArgs = mayKindArgs shutdownBlock nodeSpec.kind "--shutdown-on-block-synced";
             shutSlotArgs  = mayKindArgs shutdownSlot  nodeSpec.kind "--shutdown-on-slot-synced";
-        in backend.finaliseNodeArgs profile nodeSpec
+        in backend.services-config.finaliseNodeArgs profile nodeSpec
           (if   shutBlockArgs != []
            then shutBlockArgs
            else shutSlotArgs);
@@ -242,7 +242,7 @@ let
       };
 
       topology = rec {
-        JSON  = backend.topologyForNodeSpec { inherit profile nodeSpec; };
+        JSON  = backend.services-config.topologyForNodeSpec { inherit profile nodeSpec; };
         value = __fromJSON (__readFile JSON);
       };
 

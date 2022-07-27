@@ -20,14 +20,14 @@ let
     nodeSpecs:
     let
     in
-        backend.finaliseTracerService
+        backend.services-config.finaliseTracerService
         {
           ## In both the local and remote scenarios, it's most frequently convenient to act as an acceptor.
           acceptingSocket = "tracer.socket";
 
           networkMagic = profile.value.genesis.network_magic;
 
-          ## logRoot = ## ..really depends on context -- available in backend.finaliseTracerService
+          ## logRoot = ## ..really depends on context -- available in backend.services-config.finaliseTracerService
 
           dsmPassthrough = {
             # rtsOpts = ["-xc"];

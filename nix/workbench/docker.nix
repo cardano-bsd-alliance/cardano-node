@@ -20,7 +20,7 @@ let
     rec
     { name = "docker";
 
-      inherit (import ./profiles/services-config.nix {inherit lib workbench basePort stateDir useCabalRun enableEKG;}) topologyForNodeSpec nodePublicIP finaliseNodeService finaliseNodeConfig finaliseNodeArgs finaliseGeneratorService finaliseGeneratorConfig finaliseTracerService;
+      services-config = import ./profiles/services-config.nix {inherit lib workbench basePort stateDir useCabalRun enableEKG;};
 
       materialise-profile =
         { profileNix }:

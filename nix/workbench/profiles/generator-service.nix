@@ -26,14 +26,14 @@ let
                ShelleyGenesisFile ByronGenesisFile;
            };
     in
-        backend.finaliseGeneratorService
+        backend.services-config.finaliseGeneratorService
         {
           inherit (profile.value) era;
 
           targetNodes = __mapAttrs
             (name: { name, port, ...}@nodeSpec:
               { inherit port;
-                ip = let ip = backend.nodePublicIP nodeSpec; # getPublicIp resources nodes name
+                ip = let ip = backend.services-config.nodePublicIP nodeSpec; # getPublicIp resources nodes name
                      in __trace "generator target:  ${name}/${ip}:${toString port}" ip;
               })
             nodeSpecs;
@@ -45,7 +45,7 @@ let
           localNodeConf = removeAttrs exemplarNode.serviceConfig.value ["executable"];
 
           ## The nodeConfig of the Tx generator itself.
-          nodeConfig = backend.finaliseGeneratorConfig generatorNodeConfigDefault;
+          nodeConfig = backend.services-config.finaliseGeneratorConfig generatorNodeConfigDefault;
 
           dsmPassthrough = {
             # rtsOpts = ["-xc"];
