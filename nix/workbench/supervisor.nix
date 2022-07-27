@@ -59,9 +59,7 @@ let
 
   all-profiles =
     workbench.all-profiles
-      { inherit backend;
-        envArgs = backend.env-args-base;
-      };
+      { inherit backend; };
 in
 {
   inherit cacheDir stateDir basePort;
