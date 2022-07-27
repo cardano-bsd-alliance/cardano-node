@@ -98,7 +98,7 @@ let
   profile-topology-genesis = import ./genesis.nix  { inherit pkgs; };
 
   with-profile =
-    { backend, envArgs, profileName }:
+    { backend, profileName }:
     let
       ps = all-profiles { inherit backend; };
 

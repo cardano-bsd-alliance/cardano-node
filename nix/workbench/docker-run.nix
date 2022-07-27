@@ -18,11 +18,9 @@ let
   inherit (docker-workbench) workbench backend cacheDir stateDir basePort;
 
   with-docker-profile =
-    { envArgsOverride ? {} }:
+    { envArgsOverride ? {} }: ## TODO: envArgsOverride is not used!
     workbench.with-profile
-      { inherit backend profileName;
-        envArgs = docker-workbench.env-args-base // envArgsOverride;
-      };
+      { inherit backend profileName; };
 
   inherit
     (with-docker-profile {})
