@@ -81,8 +81,8 @@ let
           { inherit
               pkgs
               runWorkbenchJqOnly runJq workbench
-              backend
               profileName;
+            inherit (backend) services-config;
           };
 
       value = genAttrs profile-names mkProfile;
