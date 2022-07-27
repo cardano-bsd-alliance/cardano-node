@@ -33,19 +33,20 @@ let
 
       inherit (pkgs.callPackage
                ./node-services.nix
-               { inherit runJq backend profile;
+               { inherit runJq profile;
+                 inherit (backend) services-config;
                  baseNodeConfig = cardanoLib.environments.testnet.nodeConfig;
                })
         node-services;
 
       inherit (pkgs.callPackage
                ./generator-service.nix
-               { inherit runJq backend profile; })
+               { inherit runJq profile; inherit (backend) services-config;})
         generator-service;
 
       inherit (pkgs.callPackage
                ./tracer-service.nix
-               { inherit runJq backend profile; })
+               { inherit runJq profile; inherit (backend) services-config;})
         tracer-service;
     };
 
