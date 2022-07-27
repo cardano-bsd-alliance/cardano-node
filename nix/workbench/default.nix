@@ -73,7 +73,7 @@ let
 
   all-profiles =
     ## The backend is an attrset of AWS/supervisord-specific methods and parameters.
-    { backend }:
+    { services-config }:
     rec {
       mkProfile =
         profileName:
@@ -81,8 +81,8 @@ let
           { inherit
               pkgs
               runWorkbenchJqOnly runJq workbench
+              services-config
               profileName;
-            inherit (backend) services-config;
           };
 
       value = genAttrs profile-names mkProfile;
@@ -100,7 +100,7 @@ let
   with-profile =
     { backend, profileName }:
     let
-      ps = all-profiles { inherit backend; };
+      ps = all-profiles { inherit (backend) services-config; };
 
       profileNix = ps.value."${profileName}"
         or (throw "No such profile: ${profileName};  Known profiles: ${toString (__attrNames ps.value)}");

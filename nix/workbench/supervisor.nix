@@ -51,7 +51,7 @@ let
 
   all-profiles =
     workbench.all-profiles
-      { inherit backend; };
+      { inherit (backend) services-config; };
 in
 {
   inherit cacheDir stateDir basePort;
