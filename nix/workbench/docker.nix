@@ -30,14 +30,6 @@ let
           cp ${dockerd.mkSupervisorConf profileNix} $out/docker.conf
           '';
 
-      ## IMPORTANT:  keep in sync with envArgs in 'workbench/default.nix/generateProfiles/environment'.
-      env-args-base =
-        {
-          inherit (pkgs) cardanoLib;
-          inherit stateDir cacheDir basePort;
-          staggerPorts = true;
-        };
-
       ## Backend-specific Nix bits:
       dockerd =
         {
