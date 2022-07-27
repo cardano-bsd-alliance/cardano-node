@@ -5,8 +5,6 @@
 , stateDir              ? "run/current"
 , useCabalRun           ? false
 , enableEKG             ? true
-##
-, ...
 }:
 with lib;
 {
