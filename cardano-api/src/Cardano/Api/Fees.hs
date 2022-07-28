@@ -101,6 +101,7 @@ import qualified Ouroboros.Consensus.HardFork.History as Consensus
 
 import           Cardano.Api.Address
 import           Cardano.Api.Certificate
+import           Cardano.Api.EraCast
 import           Cardano.Api.Eras
 import           Cardano.Api.Error
 import           Cardano.Api.Modes
@@ -912,21 +913,20 @@ data BalancedTxBody era
 -- which can be queried from a local node.
 --
 makeTransactionBodyAutoBalance
-  :: forall era mode.
+  :: forall era txEra mode.
      IsShelleyBasedEra era
   => EraInMode era mode
   -> SystemStart
   -> EraHistory mode
-  -> ProtocolParameters
+  -> ProtocolParametersWrapper txEra
   -> Set PoolId       -- ^ The set of registered stake pools
   -> UTxO era         -- ^ Just the transaction inputs, not the entire 'UTxO'.
   -> TxBodyContent BuildTx era
   -> AddressInEra era -- ^ Change address
   -> Maybe Word       -- ^ Override key witnesses
   -> Either TxBodyErrorAutoBalance (BalancedTxBody era)
-makeTransactionBodyAutoBalance eraInMode systemstart history pparams
+makeTransactionBodyAutoBalance eraInMode systemstart history pWrapper@(ProtocolParametersWrapper txEra pparams)
                             poolids utxo txbodycontent changeaddr mnkeys = do
-
     -- Our strategy is to:
     -- 1. evaluate all the scripts to get the exec units, update with ex units
     -- 2. figure out the overall min fees
@@ -994,7 +994,7 @@ makeTransactionBodyAutoBalance eraInMode systemstart history pparams
 
     let balance = evaluateTransactionBalance pparams poolids utxo txbody2
 
-    mapM_ (`checkMinUTxOValue` pparams) $ txOuts txbodycontent1
+    mapM_ (`checkMinUTxOValue` pWrapper) $ txOuts txbodycontent1
 
     -- check if the balance is positive or negative
     -- in one case we can produce change, in the other the inputs are insufficient
@@ -1046,7 +1046,7 @@ makeTransactionBodyAutoBalance eraInMode systemstart history pparams
     | txOutValueToLovelace balance < 0 =
         Left . TxBodyErrorAdaBalanceNegative $ txOutValueToLovelace balance
     | otherwise =
-        case checkMinUTxOValue (TxOut changeaddr balance TxOutDatumNone ReferenceScriptNone) pparams of
+        case checkMinUTxOValue (TxOut changeaddr balance TxOutDatumNone ReferenceScriptNone) pWrapper of
           Left (TxBodyErrorMinUTxONotMet txOutAny minUTxO) ->
             Left $ TxBodyErrorAdaBalanceTooSmall txOutAny minUTxO (txOutValueToLovelace balance)
           Left err -> Left err
@@ -1054,10 +1054,11 @@ makeTransactionBodyAutoBalance eraInMode systemstart history pparams
 
    checkMinUTxOValue
      :: TxOut CtxTx era
-     -> ProtocolParameters
+     -> ProtocolParametersWrapper txEra
      -> Either TxBodyErrorAutoBalance ()
    checkMinUTxOValue txout@(TxOut _ v _ _) pparams' = do
      minUTxO  <- first TxBodyErrorMinUTxOMissingPParams
+                   $ getIsCardanoEraConstraint (shelleyBasedToCardanoEra txEra)
                    $ calculateMinimumUTxO era txout pparams'
      if txOutValueToLovelace v >= selectLovelace minUTxO
      then Right ()
@@ -1217,27 +1218,34 @@ mapTxScriptWitnesses f txbodycontent@TxBodyContent {
               $ Map.fromList final
 
 calculateMinimumUTxO
-  :: ShelleyBasedEra era
+  :: (IsCardanoEra era, IsCardanoEra txEra)
+  => ShelleyBasedEra era
   -> TxOut CtxTx era
-  -> ProtocolParameters
+  -> ProtocolParametersWrapper txEra
   -> Either MinimumUTxOError Value
-calculateMinimumUTxO era txout@(TxOut _ v _ _) pparams' =
-  case era of
+calculateMinimumUTxO _era txout@(TxOut _ v _ _) (ProtocolParametersWrapper txEra pparams') =
+  case txEra of
     ShelleyBasedEraShelley -> lovelaceToValue <$> getMinUTxOPreAlonzo pparams'
     ShelleyBasedEraAllegra -> calcMinUTxOAllegraMary
     ShelleyBasedEraMary -> calcMinUTxOAllegraMary
     ShelleyBasedEraAlonzo ->
-      let lTxOut = toShelleyTxOutAny era txout
-          babPParams = toAlonzoPParams pparams'
-          minUTxO = Shelley.evaluateMinLovelaceOutput babPParams lTxOut
-          val = lovelaceToValue $ fromShelleyLovelace minUTxO
-      in Right val
+      case eraCast (shelleyBasedToCardanoEra txEra) txout of
+        Left _e -> error "calculateMinimumUTxO: castError"
+        Right castTxOut ->
+          let lTxOut = toShelleyTxOutAny txEra castTxOut
+              babPParams = toAlonzoPParams pparams'
+              minUTxO = Shelley.evaluateMinLovelaceOutput babPParams lTxOut
+              val = lovelaceToValue $ fromShelleyLovelace minUTxO
+          in Right val
     ShelleyBasedEraBabbage ->
-      let lTxOut = toShelleyTxOutAny era txout
-          babPParams = toBabbagePParams pparams'
-          minUTxO = Shelley.evaluateMinLovelaceOutput babPParams lTxOut
-          val = lovelaceToValue $ fromShelleyLovelace minUTxO
-      in Right val
+      case eraCast (shelleyBasedToCardanoEra txEra) txout of
+        Left _e -> error "calculateMinimumUTxO: castError"
+        Right castTxOut ->
+          let lTxOut = toShelleyTxOutAny txEra castTxOut
+              babPParams = toBabbagePParams pparams'
+              minUTxO = Shelley.evaluateMinLovelaceOutput babPParams lTxOut
+              val = lovelaceToValue $ fromShelleyLovelace minUTxO
+          in Right val
  where
    calcMinUTxOAllegraMary :: Either MinimumUTxOError Value
    calcMinUTxOAllegraMary = do
@@ -1249,6 +1257,15 @@ calculateMinimumUTxO era txout@(TxOut _ v _ _) pparams' =
      :: ProtocolParameters -> Either MinimumUTxOError Lovelace
    getMinUTxOPreAlonzo =
      maybe (Left PParamsMinUTxOMissing) Right . protocolParamMinUTxOValue
+
+getIsCardanoEraConstraint
+  :: CardanoEra era -> (IsCardanoEra era => a) -> a
+getIsCardanoEraConstraint ByronEra f = f
+getIsCardanoEraConstraint ShelleyEra f = f
+getIsCardanoEraConstraint AllegraEra f = f
+getIsCardanoEraConstraint MaryEra f = f
+getIsCardanoEraConstraint AlonzoEra f = f
+getIsCardanoEraConstraint BabbageEra f = f
 
 data MinimumUTxOError =
     PParamsMinUTxOMissing

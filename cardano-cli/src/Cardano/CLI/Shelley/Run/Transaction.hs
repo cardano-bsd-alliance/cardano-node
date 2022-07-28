@@ -43,10 +43,8 @@ import           Ouroboros.Consensus.Shelley.Eras (StandardAllegra, StandardCryp
 
 --TODO: do this nicely via the API too:
 import qualified Cardano.Binary as CBOR
-
 --TODO: following import needed for orphan Eq Script instance
 import           Cardano.Ledger.Shelley.Scripts ()
-import           Cardano.Ledger.ShelleyMA.TxBody ()
 
 import           Cardano.CLI.Environment (EnvSocketError, readEnvSocketPath, renderEnvSocketError)
 import           Cardano.CLI.Run.Friendly (friendlyTxBS, friendlyTxBodyBS)
@@ -496,7 +494,7 @@ runTxBuild
   -> Maybe Word
   -> TxBuildOutputOptions
   -> ExceptT ShelleyTxCmdError IO ()
-runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mScriptValidity
+runTxBuild (AnyCardanoEra txEra) (AnyConsensusModeParams cModeParams) networkId mScriptValidity
            txins readOnlyRefIns txinsc mReturnCollateral mtotcoll txouts (TxOutChangeAddress changeAddr) mValue mLowerBound mUpperBound
            certFiles withdrawals reqSigners metadataSchema scriptFiles metadataFiles mpparams
            mUpdatePropFile outputFormat mOverrideWits outputOptions = do
@@ -506,39 +504,40 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
       dummyFee = Just $ Lovelace 0
       inputsThatRequireWitnessing = [input | (input,_) <- txins]
 
-  allReferenceInputs <- getAllReferenceInputs era txins mValue certFiles withdrawals readOnlyRefIns
+  allReferenceInputs <- getAllReferenceInputs txEra txins mValue certFiles withdrawals readOnlyRefIns
 
-  case (consensusMode, cardanoEraStyle era) of
+  case (consensusMode, cardanoEraStyle txEra) of
     (CardanoMode, ShelleyBasedEra _sbe) -> do
       txBodyContent <-
         TxBodyContent
-          <$> validateTxIns               era txins
-          <*> validateTxInsCollateral     era txinsc
-          <*> validateTxInsReference      era allReferenceInputs
-          <*> validateTxOuts              era txouts
-          <*> validateTxTotalCollateral   era mtotcoll
-          <*> validateTxReturnCollateral  era mReturnCollateral
-          <*> validateTxFee               era dummyFee
-          <*> ((,) <$> validateTxValidityLowerBound era mLowerBound
-                   <*> validateTxValidityUpperBound era mUpperBound)
-          <*> validateTxMetadataInEra     era metadataSchema metadataFiles
-          <*> validateTxAuxScripts        era scriptFiles
-          <*> validateRequiredSigners     era reqSigners
-          <*> validateProtocolParameters  era mpparams
-          <*> validateTxWithdrawals       era withdrawals
-          <*> validateTxCertificates      era certFiles
-          <*> validateTxUpdateProposal    era mUpdatePropFile
-          <*> validateTxMintValue         era mValue
-          <*> validateTxScriptValidity    era mScriptValidity
-      eInMode <- case toEraInMode era CardanoMode of
+          <$> validateTxIns               txEra txins
+          <*> validateTxInsCollateral     txEra txinsc
+          <*> validateTxInsReference      txEra allReferenceInputs
+          <*> validateTxOuts              txEra txouts
+          <*> validateTxTotalCollateral   txEra mtotcoll
+          <*> validateTxReturnCollateral  txEra mReturnCollateral
+          <*> validateTxFee               txEra dummyFee
+          <*> ((,) <$> validateTxValidityLowerBound txEra mLowerBound
+                   <*> validateTxValidityUpperBound txEra mUpperBound)
+          <*> validateTxMetadataInEra     txEra metadataSchema metadataFiles
+          <*> validateTxAuxScripts        txEra scriptFiles
+          <*> validateRequiredSigners     txEra reqSigners
+          <*> validateProtocolParameters  txEra mpparams
+          <*> validateTxWithdrawals       txEra withdrawals
+          <*> validateTxCertificates      txEra certFiles
+          <*> validateTxUpdateProposal    txEra mUpdatePropFile
+          <*> validateTxMintValue         txEra mValue
+          <*> validateTxScriptValidity    txEra mScriptValidity
+      eInMode <- case toEraInMode txEra CardanoMode of
                    Just result -> return result
                    Nothing ->
                      left (ShelleyTxCmdEraConsensusModeMismatchTxBalance outputOptions
-                            (AnyConsensusMode CardanoMode) (AnyCardanoEra era))
+                            (AnyConsensusMode CardanoMode) (AnyCardanoEra txEra))
 
-      (utxo, pparams, eraHistory, systemStart, stakePools) <- do
+      (utxo, pparams, eraHistory, systemStart, stakePools, txSbe) <- do
         qAnyE@(AnyCardanoEra qEra) <- determineEra cModeParams localNodeConnInfo
         qSbe <- getSbe $ cardanoEraStyle qEra
+        txSbe <- getSbe $ cardanoEraStyle txEra
 
         case toEraInMode qEra CardanoMode of
           Just qeInMode -> do
@@ -557,7 +556,7 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
                   $ QueryInEra qeInMode $ QueryInShelleyBasedEra qSbe
                   $ QueryUTxO (QueryUTxOByTxIn (Set.fromList $ inputsThatRequireWitnessing ++ allReferenceInputs))
 
-                utxo <- case first ShelleyTxCmdTxEraCastErr (eraCast era qUtxo) of { Right a -> pure a; Left e -> left e }
+                utxo <- case first ShelleyTxCmdTxEraCastErr (eraCast txEra qUtxo) of { Right a -> pure a; Left e -> left e }
 
                 txinsExist inputsThatRequireWitnessing utxo
 
@@ -571,10 +570,10 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
                 stakePools <- firstExceptT ShelleyTxCmdTxSubmitErrorEraMismatch . ExceptT $
                   queryExpr . QueryInEra qeInMode . QueryInShelleyBasedEra qSbe $ QueryStakePools
 
-                return (utxo, pparams, eraHistory, systemStart, stakePools)
+                return (utxo, pparams, eraHistory, systemStart, stakePools, txSbe)
           Nothing -> left $ ShelleyTxCmdEraConsensusModeMismatch Nothing (AnyConsensusMode consensusMode) qAnyE
 
-      let cAddr = case anyAddressInEra era changeAddr of
+      let cAddr = case anyAddressInEra txEra changeAddr of
                     Just addr -> addr
                     Nothing -> error $ "runTxBuild: Byron address used: " <> show changeAddr
 
@@ -582,7 +581,7 @@ runTxBuild (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) networkId mS
         firstExceptT ShelleyTxCmdBalanceTxBody
           . hoistEither
           $ makeTransactionBodyAutoBalance eInMode systemStart eraHistory
-                                           pparams stakePools utxo txBodyContent
+                                           (ProtocolParametersWrapper txSbe pparams) stakePools utxo txBodyContent
                                            cAddr mOverrideWits
 
       putStrLn $ "Estimated transaction fee: " <> (show fee :: String)
@@ -1437,7 +1436,7 @@ runTxCalculateMinRequiredUTxO (AnyCardanoEra era) protocolParamsSourceSpec txOut
       firstExceptT ShelleyTxCmdPParamsErr . hoistEither
         $ checkProtocolParameters sbe pp
       minValue <- firstExceptT ShelleyTxCmdMinimumUTxOErr
-                    . hoistEither $ calculateMinimumUTxO sbe out pp
+                    . hoistEither $ calculateMinimumUTxO sbe out $ ProtocolParametersWrapper sbe pp
       liftIO . IO.print $ selectLovelace minValue
 
 runTxCreatePolicyId :: ScriptFile -> ExceptT ShelleyTxCmdError IO ()

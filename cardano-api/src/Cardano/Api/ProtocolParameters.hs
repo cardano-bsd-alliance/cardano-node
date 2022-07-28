@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -17,6 +18,7 @@
 --
 module Cardano.Api.ProtocolParameters (
     -- * The updatable protocol parameters
+    ProtocolParametersWrapper(..),
     ProtocolParameters(..),
     checkProtocolParameters,
     ProtocolParametersError(..),
@@ -121,6 +123,10 @@ import           Cardano.Api.StakePoolMetadata
 import           Cardano.Api.TxMetadata
 import           Cardano.Api.Utils
 import           Cardano.Api.Value
+
+
+data ProtocolParametersWrapper txEra where
+  ProtocolParametersWrapper :: ShelleyBasedEra txEra -> ProtocolParameters -> ProtocolParametersWrapper txEra
 
 -- | The values of the set of /updatable/ protocol parameters. At any
 -- particular point on the chain there is a current set of parameters in use.
