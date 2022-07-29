@@ -1181,9 +1181,9 @@ runQueryLeadershipSchedule (AnyConsensusModeParams cModeParams) network
       schedule :: Set SlotNo
         <- case whichSchedule of
              CurrentEpoch -> do
-               let currentEpochStateQuery = QueryInEra eInMode $ QueryInShelleyBasedEra sbe QueryCurrentEpochState
-                   currentEpochQuery = QueryInEra eInMode $ QueryInShelleyBasedEra sbe QueryEpoch
-               serCurrentEpochState <- executeQuery era cModeParams localNodeConnInfo currentEpochStateQuery
+               let currentEpochQuery = QueryInEra eInMode $ QueryInShelleyBasedEra sbe QueryEpoch
+               serCurrentEpochState <- executeQuery era cModeParams localNodeConnInfo $
+                QueryInEra eInMode $ QueryInShelleyBasedEra sbe (QueryPoolDistr (Just (Set.singleton poolid)))
                curentEpoch <- executeQuery era cModeParams localNodeConnInfo currentEpochQuery
                firstExceptT ShelleyQueryCmdLeaderShipError $ hoistEither
                 $ eligibleLeaderSlotsConstaints sbe
