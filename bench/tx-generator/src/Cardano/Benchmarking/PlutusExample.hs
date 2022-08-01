@@ -25,19 +25,21 @@ import           Plutus.V1.Ledger.Contexts (ScriptContext(..), ScriptPurpose(..)
 mkUTxOScriptList :: forall era.
      IsShelleyBasedEra era
   => NetworkId
-  -> (FilePath, Script PlutusScriptV1, ScriptData)
+  -> (Script PlutusScriptV1, ScriptData)
+  -> Witness WitCtxTxIn era
   -> Validity
   -> ToUTxOList era
-mkUTxOScriptList networkId (scriptFile, script, txOutDatum) validity
-  = mapToUTxO $ repeat $ mkUTxOScript networkId (scriptFile, script, txOutDatum) validity
+mkUTxOScriptList networkId (script, txOutDatum) witness validity
+  = mapToUTxO $ repeat $ mkUTxOScript networkId (script, txOutDatum) witness validity
 
 mkUTxOScript :: forall era.
      IsShelleyBasedEra era
   => NetworkId
-  -> (FilePath, Script PlutusScriptV1, ScriptData)
+  -> (Script PlutusScriptV1, ScriptData)
+  -> Witness WitCtxTxIn era
   -> Validity
   -> ToUTxO era
-mkUTxOScript networkId (scriptFile, script, txOutDatum) validity value
+mkUTxOScript networkId (script, txOutDatum) witness validity value
   = ( mkTxOut value
     , mkNewFund value
     )
@@ -58,10 +60,11 @@ mkUTxOScript networkId (scriptFile, script, txOutDatum) validity value
   mkNewFund :: Lovelace -> TxIx -> TxId -> Fund
   mkNewFund val txIx txId = Fund $ InAnyCardanoEra (cardanoEra @ era) $ FundInEra {
       _fundTxIn = TxIn txId txIx
+    , _fundWitness = witness
     , _fundVal = lovelaceToTxOutValue val
     , _fundSigningKey = Nothing
     , _fundValidity = validity
-    , _fundVariant = PlutusScriptFund scriptFile txOutDatum
+    , _fundVariant = PlutusScriptFund
     }
 
 readScript :: FilePath -> IO (Script PlutusScriptV1)

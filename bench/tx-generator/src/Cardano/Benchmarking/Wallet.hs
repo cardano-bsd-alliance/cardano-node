@@ -146,6 +146,7 @@ mkUTxOVariant variant networkId key validity value
   mkNewFund :: Lovelace -> TxIx -> TxId -> Fund
   mkNewFund val txIx txId = Fund $ InAnyCardanoEra (cardanoEra @ era) $ FundInEra {
       _fundTxIn = TxIn txId txIx
+    , _fundWitness = KeyWitness KeyWitnessForSpending
     , _fundVal = lovelaceToTxOutValue val
     , _fundSigningKey = Just key
     , _fundValidity = validity
@@ -157,9 +158,8 @@ genTx :: forall era. IsShelleyBasedEra era =>
   -> (TxInsCollateral era, [Fund])
   -> TxFee era
   -> TxMetadataInEra era
-  -> Witness WitCtxTxIn era
   -> TxGenerator era
-genTx protocolParameters (collateral, collFunds) fee metadata witness inFunds outputs
+genTx protocolParameters (collateral, collFunds) fee metadata inFunds outputs
   = case makeTransactionBody txBodyContent of
       Left err -> error $ show err
       Right b -> Right ( signShelleyTransaction b $ map WitnessPaymentKey allKeys
@@ -168,7 +168,7 @@ genTx protocolParameters (collateral, collFunds) fee metadata witness inFunds ou
  where
   allKeys = mapMaybe getFundKey $ inFunds ++ collFunds
   txBodyContent = TxBodyContent {
-      txIns = map (\f -> (getFundTxIn f, BuildTxWith witness)) inFunds
+      txIns = map (\f -> (getFundTxIn f, BuildTxWith $ getFundWitness f)) inFunds
     , txInsCollateral = collateral
     , txInsReference = TxInsReferenceNone
     , txOuts = outputs
