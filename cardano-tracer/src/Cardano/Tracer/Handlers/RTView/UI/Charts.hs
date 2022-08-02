@@ -35,14 +35,13 @@ import           Control.Monad.Extra (whenJustM)
 import           Data.Aeson (decodeFileStrict', encodeFile)
 import           Data.List.Extra (chunksOf)
 import qualified Data.Map.Strict as M
-import           Data.Maybe (catMaybes, fromMaybe)
+import           Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import           Data.Text (pack)
 import           Graphics.UI.Threepenny.Core
 import           Text.Read (readMaybe)
 
 import           Cardano.Tracer.Environment
-import           Cardano.Tracer.Handlers.RTView.State.Displayed
 import           Cardano.Tracer.Handlers.RTView.State.Historical
 import           Cardano.Tracer.Handlers.RTView.System
 import           Cardano.Tracer.Handlers.RTView.UI.CSS.Own
@@ -82,17 +81,6 @@ getNewColor q =
 initDatasetsIndices :: UI DatasetsIndices
 initDatasetsIndices = liftIO . newTVarIO $ M.empty
 
-saveDatasetIx
-  :: DatasetsIndices
-  -> NodeId
-  -> Index
-  -> UI ()
-saveDatasetIx indices nodeId ix = liftIO . atomically $
-  modifyTVar' indices $ \currentIndices ->
-    case M.lookup nodeId currentIndices of
-      Nothing -> M.insert nodeId ix currentIndices
-      Just _  -> M.adjust (const ix) nodeId currentIndices
-
 getDatasetIx
   :: DatasetsIndices
   -> NodeId
@@ -101,21 +89,27 @@ getDatasetIx indices nodeId = liftIO $
   M.lookup nodeId <$> readTVarIO indices
 
 addNodeDatasetsToCharts
-  :: Window
-  -> NodeId
+  :: TracerEnv
   -> Colors
   -> DatasetsIndices
-  -> DisplayedElements
+  -> NodeId
   -> UI ()
-addNodeDatasetsToCharts window nodeId@(NodeId anId) colors datasetIndices displayedElements = do
+addNodeDatasetsToCharts tracerEnv colors datasetIndices nodeId@(NodeId anId) = do
   colorForNode@(Color code) <- getNewColor colors
   forM_ chartsIds $ \chartId -> do
     newIx <- Chart.getDatasetsLengthChartJS chartId
-    nodeName <- liftIO $ getDisplayedValue displayedElements nodeId (anId <> "__node-name")
-    Chart.addDatasetChartJS chartId (fromMaybe anId nodeName) colorForNode
-    saveDatasetIx datasetIndices nodeId (Index newIx)
+    nodeName <- liftIO $ askNodeName tracerEnv nodeId
+    Chart.addDatasetChartJS chartId nodeName colorForNode
+    saveDatasetIx $ Index newIx
   -- Change color label for node name as well.
+  window <- askWindow
   findAndSet (set style [("color", code)]) window (anId <> "__node-chart-label")
+ where
+  saveDatasetIx ix = liftIO . atomically $
+    modifyTVar' datasetIndices $ \currentIndices ->
+      case M.lookup nodeId currentIndices of
+        Nothing -> M.insert nodeId ix currentIndices
+        Just _  -> M.adjust (const ix) nodeId currentIndices
 
 -- Each chart updates independently from others. Because of this, the user
 -- can specify "auto-update period" for each chart. Some of data (by its nature)

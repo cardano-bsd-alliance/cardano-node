@@ -73,14 +73,14 @@ updateNodesUI tracerEnv@TracerEnv{teConnectedNodes, teAcceptedMetrics, teSavedTO
         newlyConnected = connected \\ displayed -- In 'connected' but not in 'displayed'.
     deleteColumnsForDisconnected connected disconnected
     addColumnsForConnected
+      tracerEnv
       newlyConnected
       loggingConfig
       nodesErrors
       updateErrorsTimer
-      displayedElements
     checkNoNodesState connected noNodesProgressTimer
     askNSetNodeInfo tracerEnv newlyConnected displayedElements
-    addDatasetsForConnected newlyConnected colors datasetIndices displayedElements
+    addDatasetsForConnected tracerEnv newlyConnected colors datasetIndices
     restoreLastHistoryOnCharts tracerEnv datasetIndices newlyConnected
     liftIO $
       updateDisplayedElements displayedElements connected
@@ -91,37 +91,35 @@ updateNodesUI tracerEnv@TracerEnv{teConnectedNodes, teAcceptedMetrics, teSavedTO
   setEraEpochInfo connected displayedElements teAcceptedMetrics nodesEraSettings
 
 addColumnsForConnected
-  :: Set NodeId
+  :: TracerEnv
+  -> Set NodeId
   -> NonEmpty LoggingParams
   -> Errors
   -> UI.Timer
-  -> DisplayedElements
   -> UI ()
-addColumnsForConnected newlyConnected loggingConfig
-                       nodesErrors updateErrorsTimer displayedElements = do
-  window <- askWindow
-  unless (S.null newlyConnected) $
+addColumnsForConnected tracerEnv newlyConnected loggingConfig nodesErrors updateErrorsTimer = do
+  unless (S.null newlyConnected) $ do
+    window <- askWindow
     findAndShow window "main-table-container"
   forM_ newlyConnected $
     addNodeColumn
-      window
+      tracerEnv
       loggingConfig
       nodesErrors
       updateErrorsTimer
-      displayedElements
 
 addDatasetsForConnected
-  :: Set NodeId
+  :: TracerEnv
+  -> Set NodeId
   -> Colors
   -> DatasetsIndices
-  -> DisplayedElements
   -> UI ()
-addDatasetsForConnected newlyConnected colors datasetIndices displayedElements = do
-  window <- askWindow
-  unless (S.null newlyConnected) $
+addDatasetsForConnected tracerEnv newlyConnected colors datasetIndices = do
+  unless (S.null newlyConnected) $ do
+    window <- askWindow
     findAndShow window "main-charts-container"
-  forM_ newlyConnected $ \nodeId ->
-    addNodeDatasetsToCharts window nodeId colors datasetIndices displayedElements
+  forM_ newlyConnected $
+    addNodeDatasetsToCharts tracerEnv colors datasetIndices
 
 deleteColumnsForDisconnected
   :: Set NodeId

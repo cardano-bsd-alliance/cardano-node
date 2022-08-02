@@ -15,7 +15,7 @@ import           Graphics.UI.Threepenny.Core
 import           System.FilePath ((</>))
 
 import           Cardano.Tracer.Configuration
-import           Cardano.Tracer.Handlers.RTView.State.Displayed
+import           Cardano.Tracer.Environment
 import           Cardano.Tracer.Handlers.RTView.State.Errors
 import           Cardano.Tracer.Handlers.RTView.UI.HTML.Node.EKG
 import           Cardano.Tracer.Handlers.RTView.UI.HTML.Node.Errors
@@ -27,15 +27,13 @@ import           Cardano.Tracer.Types
 
 -- | For every connected node the new column should be added.
 addNodeColumn
-  :: UI.Window
+  :: TracerEnv
   -> NonEmpty LoggingParams
   -> Errors
   -> UI.Timer
-  -> DisplayedElements
   -> NodeId
   -> UI ()
-addNodeColumn window loggingConfig nodesErrors updateErrorsTimer
-              displayedElements nodeId@(NodeId anId) = do
+addNodeColumn tracerEnv loggingConfig nodesErrors updateErrorsTimer nodeId@(NodeId anId) = do
   let id' = unpack anId
   ls <- logsSettings loggingConfig id'
 
@@ -46,7 +44,7 @@ addNodeColumn window loggingConfig nodesErrors updateErrorsTimer
                                   # set text "Details"
   on UI.click peersDetailsButton . const $ fadeInModal peersTable
 
-  errorsTable <- mkErrorsTable window nodeId nodesErrors updateErrorsTimer displayedElements
+  errorsTable <- mkErrorsTable tracerEnv nodeId nodesErrors updateErrorsTimer
   errorsDetailsButton <- UI.button ## (id' <> "__node-errors-details-button")
                                    #. "button is-danger"
                                    # set UI.enabled False
@@ -168,12 +166,14 @@ addNodeColumn window loggingConfig nodesErrors updateErrorsTimer
                             , element ekgMetricsWindow
                             ]
  where
-  addNodeCellH rowId cellContent =
+  addNodeCellH rowId cellContent = do
+    window <- askWindow
     whenJustM (UI.getElementById window ("node-" <> rowId <> "-row")) $ \el ->
       void $ element el #+ [ UI.th #. (unpack anId <> "__column_cell")
                                    #+ cellContent
                            ]
-  addNodeCell rowId cellContent =
+  addNodeCell rowId cellContent = do
+    window <- askWindow
     whenJustM (UI.getElementById window ("node-" <> rowId <> "-row")) $ \el ->
       void $ element el #+ [ UI.td #. (unpack anId <> "__column_cell")
                                    #+ cellContent

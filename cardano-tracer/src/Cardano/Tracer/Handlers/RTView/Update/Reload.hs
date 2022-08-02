@@ -35,14 +35,14 @@ updateUIAfterReload tracerEnv displayedElements loggingConfig colors datasetIndi
   -- so displayed state should be restored immediately.
   connected <- liftIO $ readTVarIO (teConnectedNodes tracerEnv)
   addColumnsForConnected
+    tracerEnv
     connected
     loggingConfig
     nodesErrors
     updateErrorsTimer
-    displayedElements
   checkNoNodesState connected noNodesProgressTimer
   askNSetNodeInfo tracerEnv connected displayedElements
-  addDatasetsForConnected connected colors datasetIndices displayedElements
+  addDatasetsForConnected tracerEnv connected colors datasetIndices
   restoreLastHistoryOnAllCharts tracerEnv datasetIndices
   liftIO $
     updateDisplayedElements displayedElements connected
