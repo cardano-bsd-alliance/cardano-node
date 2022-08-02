@@ -33,13 +33,17 @@ import           Control.Exception.Extra (ignore, try_)
 import           Control.Monad (forM, forM_, unless, when)
 import           Control.Monad.Extra (whenJustM)
 import           Data.Aeson (decodeFileStrict', encodeFile)
-import           Data.List.Extra (chunksOf)
+import           Data.Char (isDigit)
+import           Data.List (find, isInfixOf, isPrefixOf)
+import           Data.List.Extra (chunksOf, lower)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (catMaybes)
 import qualified Data.Set as S
-import           Data.Text (pack)
+import           Data.Text (pack, unpack)
 import           Graphics.UI.Threepenny.Core
 import           Text.Read (readMaybe)
+import           System.Directory.Extra (listFiles)
+import           System.FilePath ((</>), takeBaseName)
 
 import           Cardano.Tracer.Environment
 import           Cardano.Tracer.Handlers.RTView.State.Historical
@@ -70,14 +74,6 @@ initColors = liftIO $ do
     , "#33cc33", "#0099ff"
     ]
 
-getNewColor :: Colors -> UI Color
-getNewColor q =
-  (liftIO . atomically $ tryReadTBQueue q) >>= \case
-    Just color -> return color
-    Nothing    -> return defaultColor
- where
-  defaultColor = Color "#cccc00"
-
 initDatasetsIndices :: UI DatasetsIndices
 initDatasetsIndices = liftIO . newTVarIO $ M.empty
 
@@ -95,11 +91,20 @@ addNodeDatasetsToCharts
   -> NodeId
   -> UI ()
 addNodeDatasetsToCharts tracerEnv colors datasetIndices nodeId@(NodeId anId) = do
-  colorForNode@(Color code) <- getNewColor colors
+  nodeName <- liftIO $ askNodeName tracerEnv nodeId
+  -- We have to check if the node with 'nodeName' was connected previously.
+  -- If so - we have to take its color again, from the file.
+  -- If not - we have to take the new color for it and save it for the future.
+  colorForNode@(Color code) <-
+    liftIO (getSavedColorForNode nodeName) >>= \case
+      Nothing -> do
+        newColor <- getNewColor
+        liftIO $ saveColorForNode nodeName newColor
+        return newColor
+      Just savedColor -> return savedColor
   forM_ chartsIds $ \chartId -> do
-    newIx <- Chart.getDatasetsLengthChartJS chartId
-    nodeName <- liftIO $ askNodeName tracerEnv nodeId
     Chart.addDatasetChartJS chartId nodeName colorForNode
+    newIx <- Chart.getDatasetsLengthChartJS chartId
     saveDatasetIx $ Index newIx
   -- Change color label for node name as well.
   window <- askWindow
@@ -110,6 +115,13 @@ addNodeDatasetsToCharts tracerEnv colors datasetIndices nodeId@(NodeId anId) = d
       case M.lookup nodeId currentIndices of
         Nothing -> M.insert nodeId ix currentIndices
         Just _  -> M.adjust (const ix) nodeId currentIndices
+
+  getNewColor =
+    (liftIO . atomically $ tryReadTBQueue colors) >>= \case
+      Just color -> return color
+      Nothing    -> return defaultColor
+ 
+  defaultColor = Color "#cccc00"
 
 -- Each chart updates independently from others. Because of this, the user
 -- can specify "auto-update period" for each chart. Some of data (by its nature)
@@ -297,3 +309,29 @@ dataNameToChartId dataName =
     TxsProcessedNumData       -> TxsProcessedNumChart
     MempoolBytesData          -> MempoolBytesChart
     TxsInMempoolData          -> TxsInMempoolChart
+
+getSavedColorForNode :: NodeName -> IO (Maybe Color)
+getSavedColorForNode nodeName = do
+  colorsDir <- getPathToChartColorsDir
+  colorFiles <- map (\cf -> colorsDir </> takeBaseName cf) <$> listFiles colorsDir
+  case find (\cf -> unpack nodeName `isInfixOf` cf) colorFiles of
+    Nothing -> return Nothing
+    Just colorFile ->
+      try_ (readFile colorFile) >>= \case
+        Left _ -> return Nothing
+        Right code ->
+          if itLooksLikeColor code
+            then return . Just $ Color code
+            else return Nothing
+ where
+  itLooksLikeColor :: String -> Bool
+  itLooksLikeColor code =
+       length code == 7
+    && "#" `isPrefixOf` code
+    && all (\c -> isDigit c || c `elem` ['a' .. 'f'] )
+           (tail $ lower code)
+
+saveColorForNode :: NodeName -> Color -> IO ()
+saveColorForNode nodeName (Color code) = do
+  colorsDir <- getPathToChartColorsDir
+  ignore $ writeFile (colorsDir </> unpack nodeName) code

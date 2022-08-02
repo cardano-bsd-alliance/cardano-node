@@ -75,7 +75,7 @@ type Colors = TBQueue Color
 --   The metrics received from this node will be added in these datasets.
 --   Since each dataset has its index, we need a map 'NodeId -> ix',
 --   where 'ix' is an index of a dataset in _each_ chart.
-type DatasetsIndices = TVar (Map NodeId Index)
+type ... DatasetsIndices = TVar (Map NodeId Index)
 
 -- | It's 'True' if the web page is opened, 'False' otherwise.
 type WebPageStatus = TVar Bool
