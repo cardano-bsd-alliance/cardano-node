@@ -5,6 +5,7 @@
 ### node changes
 
 - Update ledger and Plutus to the tip of release/1.0.0 (#4242)
+- Bump block header protocol version (#4258)
 
 ### consensus changes
 
